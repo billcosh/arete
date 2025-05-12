@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Centered Text Box</title>
+  <style>
+    html, body {
+  height: 100%;
+  margin: 0;
+  background-color: black;
+  color: white;
+}
+
+/* The container for the main text area and chat input */
+.textbox-container {
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  left: 33.33%;
+  width: 33.33%;
+  display: flex;
+  flex-direction: column;
+  color: white;
+  background-color: black;
+}
+
+.textbox-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  color: white;
+  background-color: black;
+}
+
+#mainTextbox {
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  padding: 1rem;
+  font-size: 1rem;
+  resize: none;
+  overflow: auto;
+  font-family: inherit;
+  color: white;
+  background-color: black;
+}
+
+/* The chat container is positioned absolutely within the wrapper at the bottom.
+   It does not affect the layout of the main text area and is capped at 40% of its height. */
+#chatContainer {
+  width: 100%;
+  max-height: 40%;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.85);
+  border-top: 1px solid #aaa;
+  box-sizing: border-box;
+  color: white;
+  background-color: black;
+}
+
+/* The chat input itself grows dynamically.
+   It has a minimum height of one line and will auto-resize until it reaches the container’s max-height.
+   Beyond that, it will be scrollable. */
+#chatInput {
+  width: 100%;
+  min-height: 1.2em;  /* Approximately one line */
+  box-sizing: border-box;
+  padding: 4px 8px;
+  font-size: 1rem;
+  border: none;        /* No extra border – container has a border */
+  background: transparent;
+  resize: none;
+  overflow: hidden;    /* Initially, hide vertical overflow */
+  color: white;
+  background-color: black;
+}
+
+/* Optionally, ensure the chat input and its container accept pointer events */
+#chatContainer, #chatInput {
+  pointer-events: auto;
+  color: white;
+  background-color: black;
+}
+
+/* The styles for the option box on the right */
+.optionbox {
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  left: 70%;
+  width: 20%;
+  height: 80%;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  padding: 1rem;
+  box-sizing: border-box;
+  font-size: 1rem;
+  overflow: auto;
+  color: white;
+  background-color: black;
+}
+
+/* The styles for the vocab box on the left */
+.vocabbox {
+  position: absolute;
+  top: 10%;
+  bottom: 10%;
+  left: 10%;
+  width: 20%;
+  height: 80%;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  padding: 1rem;
+  box-sizing: border-box;
+  font-size: 1rem;
+  overflow: auto;
+  color: white;
+  background-color: black;
+}
+
+/* A simple style for output inside the option box */
+.outputbox {
+  width: 90%;
+  margin-top: 1rem;
+  overflow-wrap: break-word;
+  color: white;
+  background-color: black;
+}
+
+.chat-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 4px;
+  color: white;
+  background-color: black;
+}
+
+.chat-buttons button {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #aaa;
+  background-color: #f2f2f2;
+  cursor: pointer;
+}
+
+  </style>
+</head>
+<body>
+<div class="textbox-container">
+  <div class="textbox-wrapper">
+    <textarea class="textbox" id="mainTextbox" readonly></textarea>
+    <div id="chatContainer">
+      <textarea id="chatInput" placeholder="Type here..."></textarea>
+    </div>
+    <div class="chat-buttons">
+    <button id="inputTextButton">Input Text</button>
+    <button id="promptButton">Prompt</button>
+    </div>
+  </div>
+
+  <div class="textbox" id="mainTextDisplay" style="display: none; white-space: pre-wrap;"></div>
+</div>
+<div class="optionbox">
+  <button id="reviewButton">Review</button><br>
+  <button id="storyButton">Story</button><br>
+  <form id="vocabForm">
+  <button id="translateButton">Translate</button><br>
+  <button id="definitionButton">Definition</button><br>
+  <button type="submit">Add to vocab</button><br>
+  <button type="button" id="removeButton">remove from vocab</button>
+    <input type="text" id="word" name="word" required>
+  </form>
+  <div class="outputbox">
+
+  </div>
+</div>
+<div class="vocabbox">
+
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const textbox = document.querySelector('.textbox-container');
+  const inputField = document.getElementById('word');
+  const translateButton = document.getElementById('translateButton');
+  const outputBox = document.querySelector('.outputbox');
+  const mainTextbox = document.getElementById('mainTextbox');
+  const definitionButton = document.getElementById('definitionButton');
+  const vocabBox = document.querySelector('.vocabbox');
+  const reviewButton = document.getElementById('reviewButton');
+  const removeButton = document.getElementById('removeButton');
+  const chatInput = document.getElementById('chatInput');
+  const storyButton = document.getElementById('storyButton');
+
+  chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    const maxHeight = mainTextbox.clientHeight * 0.4;
+    const newHeight = Math.min(chatInput.scrollHeight, maxHeight);
+    chatInput.style.height = `${newHeight}px`;
+
+    chatInput.style.overflowY = chatInput.scrollHeight > maxHeight ? 'scroll' : 'hidden';
+  });
+
+
+  async function handleDefinition(e) {
+    if (e) e.preventDefault();
+    const textToDefine = inputField.value;
+    if (!textToDefine) return;
+    const response = await fetch('/define', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: textToDefine })
+    });
+    const data = await response.json();
+    outputBox.innerText = data.defined_text || 'Definition Failed';
+  }
+
+  async function handleTranslate(e) {
+    if (e) e.preventDefault();
+    const textToTranslate = inputField.value;
+    if (!textToTranslate) return;
+    const response = await fetch('/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: textToTranslate })
+    });
+    const data = await response.json();
+    outputBox.innerText = data.translated_text || 'Translation Failed';
+  }
+
+  async function handleRemove() {
+    const word = inputField.value;
+    if (!word) return;
+    await fetch('/removevocab', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word })
+    });
+    inputField.value = '';
+    loadVocab();
+  }
+
+  async function handleReview() {
+    try {
+      const res = await fetch('/sentence_review');
+      const sentences = await res.json();
+      mainTextbox.value = sentences.join('\n\n');
+    } catch (err) {
+      console.error('Failed to load review:', err);
+    }
+  }
+
+
+
+  async function loadVocab() {
+    try {
+      const res = await fetch('/display_vocab');
+      const words = await res.json();
+      vocabBox.innerHTML = '';
+      words.forEach(word => {
+        const wordEl = document.createElement('div');
+        wordEl.textContent = word;
+        vocabBox.appendChild(wordEl);
+      });
+    } catch (err) {
+      console.error('Failed to load vocab:', err);
+    }
+  }
+
+async function handleMove() {
+const newText = chatInput.value.trim();
+if (newText) {
+  mainTextbox.value += (mainTextbox.value ? '\n\n' : '') + newText;
+  chatInput.value = '';
+  chatInput.style.height = 'auto'; // reset height
+}
+}
+
+
+  async function handleStory(e) {
+    if (e) e.preventDefault();
+    const response = await fetch('/story', {
+      method: 'GET',
+      });
+        const data = await response.json();
+        const prefix = mainTextbox.value ? '\n\n' : '';
+        mainTextbox.value += prefix;
+        await typeText(data.story);
+        chatInput.value = '';
+        chatInput.style.height = 'auto'; // reset height
+      }
+
+
+
+async function handleQ(e) {
+if (e) e.preventDefault();
+const prompt = chatInput.value.trim();
+if (!prompt) return;
+const response = await fetch('/qrespond', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json' },
+  body: JSON.stringify({ prompt: prompt })
+  });
+  const data = await response.json();
+  const prefix = mainTextbox.value ? '\n\n' : '';
+  mainTextbox.value += prefix;
+  await typeText(data.output);
+  chatInput.value = '';
+  chatInput.style.height = 'auto'; // reset height
+}
+async function typeText(text) {
+  const delay = 10;
+  const existing = mainTextbox.value;
+  for (let i = 0; i < text.length; i++) {
+    mainTextbox.value = existing + text.slice(0, i + 1);
+    mainTextbox.scrollTop = mainTextbox.scrollHeight;
+    await new Promise(resolve => setTimeout(resolve, delay));
+}}
+
+  // Add event listeners
+  translateButton.addEventListener('click', handleTranslate);
+  definitionButton.addEventListener('click', handleDefinition);
+  reviewButton.addEventListener('click', handleReview);
+  removeButton.addEventListener('click', handleRemove);
+  inputTextButton.addEventListener('click', handleMove);
+  promptButton.addEventListener('click', handleQ);
+  storyButton.addEventListener('click', handleStory);
+
+
+
+
+  textbox.addEventListener('mouseup', () => {
+    const selection = window.getSelection().toString().trim();
+    if (selection.length > 0) {
+      inputField.value = selection;
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    const tag = document.activeElement.tagName.toLowerCase();
+    if (tag !== 'input' && tag !== 'textarea' && e.key === 't') {
+      handleTranslate();
+    }
+  });
+
+  document.getElementById('vocabForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const word = inputField.value;
+    if (!word) return;
+
+    await fetch('/addvocab', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word })
+    });
+    inputField.value = '';
+    loadVocab();
+  });
+
+  loadVocab(); // Initial load
+});
+</script>
+
+</body>
+</html>
