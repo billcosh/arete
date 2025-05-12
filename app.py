@@ -10,8 +10,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 app = Flask(__name__)
-db_URL = os.environ.get('MYSQL_URL')
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
+db_URL = os.environ.get('MYSQL_URL')
+
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 def get_db_connection():
